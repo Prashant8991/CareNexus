@@ -1,7 +1,16 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import multer from "multer";
+
+// Extend Express Request type to include file property from multer
+declare global {
+  namespace Express {
+    interface Request {
+      file?: Express.Multer.File;
+    }
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // put application routes here
