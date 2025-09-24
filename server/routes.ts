@@ -148,6 +148,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
+  // First Aid API with OpenAI integration
+  app.post('/api/first-aid', async (req, res) => {
+    try {
+      const { scenario, language = 'english' } = req.body;
+      
+      if (!scenario) {
+        return res.status(400).json({ message: 'scenario is required' });
+      }
+
+      const { OpenAI } = await import('openai');
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const systemPrompt = "You are a certified first-aid trainer. Keep answers short, step-by-step, non-judgemental, emergency-first. If the user indicates unconscious/no-breathing, instruct to call emergency services first and list chest compressions sequence concisely. Always end with 'If in doubt, call your local emergency number.'";
+      
+      const userPrompt = `Provide first aid guidance for: ${scenario}. Respond in ${language}. Format your response as JSON with: answerText (step-by-step instructions), followUps (array of 2 follow-up questions), severityScore (1-10 scale).`;
+
+      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        response_format: { type: "json_object" }
+      });
+
+      const aiResponse = JSON.parse(response.choices[0].message.content);
+      
+      // Generate TTS audio (stub implementation)
+      let audioUrl = null;
+      try {
+        const gTTS = await import('gtts');
+        const gtts = new gTTS.default(aiResponse.answerText, language.substring(0, 2));
+        const audioPath = `/tmp/tts_${Date.now()}.mp3`;
+        
+        await new Promise((resolve, reject) => {
+          gtts.save(audioPath, (err: any) => {
+            if (err) reject(err);
+            else resolve(audioPath);
+          });
+        });
+        
+        audioUrl = `/api/audio/${audioPath.split('/').pop()}`;
+      } catch (ttsError) {
+        console.log('TTS generation failed, continuing without audio:', ttsError.message);
+      }
+
+      return res.json({
+        answerText: aiResponse.answerText,
+        followUps: aiResponse.followUps || [],
+        severityScore: aiResponse.severityScore || 5,
+        audioUrl
+      });
+    } catch (error: any) {
+      console.error('First aid API error:', error);
+      return res.status(500).json({ 
+        message: 'Failed to generate first aid guidance',
+        details: error.message 
+      });
+    }
+  });
+
+  // Serve TTS audio files
+  app.get('/api/audio/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const filepath = `/tmp/${filename}`;
+    res.sendFile(filepath, (err) => {
+      if (err) {
+        res.status(404).json({ message: 'Audio file not found' });
+      }
+    });
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
