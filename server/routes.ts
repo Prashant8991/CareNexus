@@ -177,22 +177,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const aiResponse = JSON.parse(response.choices[0].message.content);
       
       // Generate TTS audio (stub implementation)
-      let audioUrl = null;
+      let audioUrl: string | null = null;
       try {
         const gTTS = await import('gtts');
-        const gtts = new gTTS.default(aiResponse.answerText, language.substring(0, 2));
+        const gtts = new gTTS.default(aiResponse.answerText, language.substring(0, 2) || 'en');
         const audioPath = `/tmp/tts_${Date.now()}.mp3`;
         
-        await new Promise((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
           gtts.save(audioPath, (err: any) => {
             if (err) reject(err);
-            else resolve(audioPath);
+            else resolve();
           });
         });
         
         audioUrl = `/api/audio/${audioPath.split('/').pop()}`;
-      } catch (ttsError) {
-        console.log('TTS generation failed, continuing without audio:', ttsError.message);
+      } catch (ttsError: any) {
+        console.log('TTS generation failed, continuing without audio:', ttsError?.message || 'Unknown TTS error');
       }
 
       return res.json({

@@ -3,9 +3,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { EmergencyButton } from '@/components/EmergencyButton';
 import { FirstAidAssistant } from '@/components/FirstAidAssistant';
 import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 import { 
   Search, 
   Heart, 
@@ -16,7 +18,11 @@ import {
   ArrowRight,
   Thermometer,
   Zap,
-  Shield
+  Shield,
+  Mic,
+  Play,
+  Pause,
+  Volume2
 } from 'lucide-react';
 
 interface FirstAidGuide {
@@ -27,6 +33,13 @@ interface FirstAidGuide {
   steps: string[];
   emergencyCall: boolean;
   icon: any;
+}
+
+interface FirstAidResponse {
+  answerText: string;
+  followUps: string[];
+  severityScore: number;
+  audioUrl?: string;
 }
 
 // TODO: Replace with real first aid data from medical database
@@ -108,8 +121,11 @@ const firstAidGuides: FirstAidGuide[] = [
 export default function FirstAid() {
   const [searchTerm, setSearchTerm] = useState('');
   const [aiQuestion, setAiQuestion] = useState('');
-  const [aiAnswer, setAiAnswer] = useState<string | null>(null);
+  const [aiAnswer, setAiAnswer] = useState<FirstAidResponse | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const { toast } = useToast();
   const [selectedGuide, setSelectedGuide] = useState<FirstAidGuide | null>(null);
 
@@ -224,57 +240,159 @@ export default function FirstAid() {
         {/* AI First Aid Assistant */}
         <FirstAidAssistant />
 
-        {/* Ask AI (Demo) - no network calls */}
+        {/* AI First Aid Assistant */}
         <div className="mb-8">
           <Card>
             <CardHeader>
-              <CardTitle>Ask the Assistant (Demo)</CardTitle>
-              <CardDescription>Common first aid Q&A without internet.</CardDescription>
+              <CardTitle>AI First Aid Assistant</CardTitle>
+              <CardDescription>Get instant, personalized first aid guidance powered by AI</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="e.g., What should I do for a deep cut?"
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <Textarea
+                  placeholder="Describe the emergency situation... e.g., 'Someone is choking on food' or 'Deep cut on finger, bleeding heavily'"
                   value={aiQuestion}
                   onChange={(e) => setAiQuestion(e.target.value)}
                   disabled={loadingAI}
+                  className="min-h-[100px]"
+                  data-testid="textarea-first-aid-scenario"
                 />
-                <Button
-                  onClick={async () => {
-                    const q = aiQuestion.trim().toLowerCase();
-                    if (!q) return;
-                    setLoadingAI(true);
-                    setTimeout(() => {
-                      // Simple pattern-based demo answers
-                      if (q.includes('cut') || q.includes('bleed')) {
-                        setAiAnswer('For a deep cut: 1) Apply firm pressure with a clean cloth. 2) Rinse gently with clean water once bleeding slows. 3) Apply a sterile dressing. 4) If bleeding is heavy, won’t stop, or the wound is deep/dirty, seek urgent care and consider calling 101.');
-                      } else if (q.includes('burn')) {
-                        setAiAnswer('For minor burns: Cool the area under cool (not cold) running water for 10–15 minutes. Do not apply ice, oils, or butter. Cover loosely with a sterile, non-stick dressing. Seek medical care for large or severe burns.');
-                      } else if (q.includes('choke') || q.includes('choking')) {
-                        setAiAnswer('For choking (adult): Ask “Are you choking?” If they can’t speak or breathe, stand behind, place a fist above the navel, grasp with the other hand, and give quick upward thrusts. Repeat until object is expelled or they become unresponsive. Call 101 if breathing is not restored.');
-                      } else if (q.includes('sprain') || q.includes('ankle')) {
-                        setAiAnswer('For a sprain: Use R.I.C.E. – Rest, Ice (15–20 min on/off), Compression (elastic bandage, not too tight), Elevation above heart. If severe pain, inability to bear weight, or deformity, seek medical evaluation.');
-                      } else if (q.includes('chest pain')) {
-                        setAiAnswer('Chest pain can be serious. Have the person rest, avoid exertion. If pain is heavy, crushing, radiates to arm/jaw, with sweating or nausea, call 101 immediately. Consider aspirin if not allergic and advised by a clinician.');
-                      } else {
-                        setAiAnswer('I do not have a specific demo answer. Describe the injury (e.g., cut, burn, choking, sprain, chest pain) for tailored first aid steps. For severe symptoms, call 101.');
+                
+                <div className="flex gap-2">
+                  <Button
+                    onClick={async () => {
+                      if (!aiQuestion.trim()) {
+                        toast({ title: "Please describe the scenario", variant: "destructive" });
+                        return;
                       }
-                      setLoadingAI(false);
-                    }, 300);
-                  }}
-                  disabled={loadingAI}
-                >
-                  {loadingAI ? 'Thinking…' : 'Ask'}
-                </Button>
+                      
+                      setLoadingAI(true);
+                      try {
+                        const response = await apiRequest('/api/first-aid', {
+                          method: 'POST',
+                          body: { scenario: aiQuestion.trim(), language: 'english' }
+                        });
+                        setAiAnswer(response);
+                      } catch (error) {
+                        toast({ title: "Error getting first aid guidance", description: "Please try again", variant: "destructive" });
+                      } finally {
+                        setLoadingAI(false);
+                      }
+                    }}
+                    disabled={loadingAI}
+                    className="flex-1"
+                    data-testid="button-get-first-aid-guidance"
+                  >
+                    {loadingAI ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                        Getting Guidance...
+                      </>
+                    ) : (
+                      <>
+                        <Heart className="w-4 h-4 mr-2" />
+                        Get First Aid Guidance
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (isRecording) {
+                        setIsRecording(false);
+                        toast({ title: "Voice recording stopped", description: "Voice recording feature coming soon" });
+                      } else {
+                        setIsRecording(true);
+                        toast({ title: "Voice recording started", description: "Voice recording feature coming soon" });
+                        setTimeout(() => setIsRecording(false), 3000);
+                      }
+                    }}
+                    className={isRecording ? 'bg-destructive text-destructive-foreground' : ''}
+                    data-testid="button-voice-record"
+                  >
+                    <Mic className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
+                  </Button>
+                </div>
               </div>
+              
               {aiAnswer && (
-                <div className="rounded-md border p-3 text-sm whitespace-pre-wrap">
-                  {aiAnswer}
+                <div className="space-y-4 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">First Aid Instructions</h3>
+                    <div className="flex items-center space-x-2">
+                      {aiAnswer.severityScore && (
+                        <Badge className={aiAnswer.severityScore > 7 ? 'bg-destructive' : aiAnswer.severityScore > 4 ? 'bg-chart-3' : 'bg-chart-2'}>
+                          Severity: {aiAnswer.severityScore}/10
+                        </Badge>
+                      )}
+                      {aiAnswer.audioUrl && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (isPlaying) {
+                              audio?.pause();
+                              setIsPlaying(false);
+                            } else {
+                              const newAudio = new Audio(aiAnswer.audioUrl!);
+                              newAudio.onended = () => setIsPlaying(false);
+                              newAudio.play();
+                              setAudio(newAudio);
+                              setIsPlaying(true);
+                            }
+                          }}
+                          data-testid="button-play-audio"
+                        >
+                          {isPlaying ? <Pause className="w-4 h-4 mr-1" /> : <Play className="w-4 h-4 mr-1" />}
+                          {isPlaying ? 'Pause' : 'Play'} Audio
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-muted/30 rounded-lg p-4">
+                    <div className="whitespace-pre-wrap text-sm">{aiAnswer.answerText}</div>
+                  </div>
+                  
+                  {aiAnswer.followUps && aiAnswer.followUps.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Follow-up Questions:</h4>
+                      <div className="space-y-1">
+                        {aiAnswer.followUps.map((question, index) => (
+                          <Button
+                            key={index}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAiQuestion(question)}
+                            className="h-auto text-left justify-start p-2 text-sm text-muted-foreground hover:text-foreground"
+                            data-testid={`button-followup-${index}`}
+                          >
+                            • {question}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setAiAnswer(null);
+                        setAiQuestion('');
+                      }}
+                      data-testid="button-clear-guidance"
+                    >
+                      Clear
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
+        
         {/* Header */}
         <div className="text-center mb-12">
           <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
