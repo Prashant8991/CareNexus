@@ -148,7 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  // First Aid API with OpenAI integration and fallback
+  // First Aid API with Gemini integration and fallback
   app.post('/api/first-aid', async (req, res) => {
     try {
       const { scenario, language = 'english' } = req.body;
@@ -158,31 +158,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let aiResponse: any = null;
-      let isOpenAIAvailable = true;
+      let isGeminiAvailable = true;
 
-      // Try OpenAI first
+      // Try Gemini first
       try {
-        const { OpenAI } = await import('openai');
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        // DON'T DELETE THIS COMMENT - referenced from javascript_gemini integration
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
         const systemPrompt = "You are a certified first-aid trainer. Keep answers short, step-by-step, non-judgemental, emergency-first. If the user indicates unconscious/no-breathing, instruct to call emergency services first and list chest compressions sequence concisely. Always end with 'If in doubt, call your local emergency number.'";
         
         const userPrompt = `Provide first aid guidance for: ${scenario}. Respond in ${language}. Format your response as JSON with: answerText (step-by-step instructions), followUps (array of 2 follow-up questions), severityScore (1-10 scale).`;
 
-        // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-        const response = await openai.chat.completions.create({
-          model: "gpt-5",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-          ],
-          response_format: { type: "json_object" }
+        // Note that the newest Gemini model series is "gemini-2.5-flash" or gemini-2.5-pro" - do not change this unless explicitly requested by the user
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-pro",
+          config: {
+            systemInstruction: systemPrompt,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "object",
+              properties: {
+                answerText: { type: "string" },
+                followUps: { type: "array", items: { type: "string" } },
+                severityScore: { type: "number" }
+              },
+              required: ["answerText", "followUps", "severityScore"]
+            }
+          },
+          contents: userPrompt
         });
 
-        aiResponse = JSON.parse(response.choices[0].message.content || '{}');
-      } catch (openaiError: any) {
-        console.log('OpenAI unavailable, using fallback system:', openaiError?.message || 'Unknown error');
-        isOpenAIAvailable = false;
+        const rawJson = response.text;
+        if (rawJson) {
+          aiResponse = JSON.parse(rawJson);
+        } else {
+          throw new Error("Empty response from Gemini model");
+        }
+      } catch (geminiError: any) {
+        console.log('Gemini unavailable, using fallback system:', geminiError?.message || 'Unknown error');
+        isGeminiAvailable = false;
         
         // Fallback system with pattern-based responses
         const scenarioLower = scenario.toLowerCase();
@@ -250,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         followUps: aiResponse.followUps || [],
         severityScore: aiResponse.severityScore || 5,
         audioUrl,
-        fallbackUsed: !isOpenAIAvailable
+        fallbackUsed: !isGeminiAvailable
       });
     } catch (error: any) {
       console.error('First aid API error:', error);
