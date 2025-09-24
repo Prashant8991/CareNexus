@@ -173,10 +173,34 @@ export default function Hospitals() {
     window.open(`tel:${phone}`, '_self');
   };
 
-  const handleDirections = (address: string) => {
-    // TODO: Integrate with Google Maps API for real directions
-    const encodedAddress = encodeURIComponent(address);
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`,'_blank');
+  const handleDirections = (hospital: Hospital) => {
+    const encodedAddress = encodeURIComponent(hospital.address);
+    let mapsUrl: string;
+    
+    if (userLocation && hospital.lat && hospital.lng) {
+      // Use precise coordinates for both origin and destination for best accuracy
+      mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${hospital.lat},${hospital.lng}&travelmode=driving`;
+    } else if (userLocation) {
+      // Use current location as origin and address as destination
+      mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${encodedAddress}&travelmode=driving`;
+    } else {
+      // No current location, just open directions to the hospital
+      mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}&travelmode=driving`;
+    }
+    
+    window.open(mapsUrl, '_blank');
+  };
+
+  const handleOpenInMaps = (hospital: Hospital) => {
+    if (hospital.lat && hospital.lng) {
+      // Use coordinates for direct location access - most reliable method
+      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${hospital.lat},${hospital.lng}`;
+      window.open(mapsUrl, '_blank');
+    } else {
+      // Fallback to search by name and address when coordinates aren't available
+      const query = encodeURIComponent(`${hospital.name} ${hospital.address}`);
+      window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+    }
   };
 
   const enableLocation = () => {
@@ -401,12 +425,22 @@ export default function Hospitals() {
                     
                     <Button 
                       variant="outline"
-                      onClick={() => handleDirections(hospital.address)}
+                      onClick={() => handleDirections(hospital)}
                       className="w-full"
                       data-testid={`button-directions-${hospital.id}`}
                     >
                       <Navigation className="w-4 h-4 mr-2" />
-                      Get Directions
+                      {userLocation ? 'Navigate from My Location' : 'Get Directions'}
+                    </Button>
+                    
+                    <Button 
+                      variant="secondary"
+                      onClick={() => handleOpenInMaps(hospital)}
+                      className="w-full"
+                      data-testid={`button-view-maps-${hospital.id}`}
+                    >
+                      <MapPin className="w-4 h-4 mr-2" />
+                      View on Google Maps
                     </Button>
 
                     {hospital.emergencyRoom && (
