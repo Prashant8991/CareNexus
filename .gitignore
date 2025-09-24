@@ -1,6 +1,36 @@
-node_modules
-dist
+﻿# Dependencies
+node_modules/
+
+# Builds
+/dist/
+/dist-ssr/
+/build/
+/.vite/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env
+.env
+.env.*.local
+
+# Misc
 .DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
+Thumbs.db
+*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Editor
+.vscode/
+.idea/
+
+# Coverage
+coverage/
+
+# OS
+Desktop.ini
