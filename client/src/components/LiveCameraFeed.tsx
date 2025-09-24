@@ -52,8 +52,28 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
       });
       
       if (videoRef.current) {
+        console.log('Setting MediaStream to video element. Stream active:', mediaStream.active);
+        console.log('Stream tracks:', mediaStream.getTracks().map(t => t.kind + ':' + t.readyState));
+        
         videoRef.current.srcObject = mediaStream;
-        videoRef.current.play();
+        // Add event listeners to debug video loading
+        videoRef.current.onloadedmetadata = () => {
+          console.log('Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
+        };
+        videoRef.current.oncanplay = () => {
+          console.log('Video can start playing');
+        };
+        videoRef.current.onerror = (e) => {
+          console.error('Video element error:', e);
+        };
+        videoRef.current.onloadstart = () => {
+          console.log('Video load started');
+        };
+        
+        // Ensure the video plays
+        videoRef.current.play().catch(err => {
+          console.error('Video play failed:', err);
+        });
       }
       
       setStream(mediaStream);
@@ -217,15 +237,24 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Video Stream */}
-          <div className="relative bg-muted rounded-lg overflow-hidden aspect-video">
+          <div className="relative bg-muted rounded-lg overflow-hidden" style={{ aspectRatio: '16/9', minHeight: '300px' }}>
             {isStreaming ? (
               <>
                 <video
                   ref={videoRef}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover bg-black"
                   autoPlay
                   muted
                   playsInline
+                  controls={false}
+                  width="640"
+                  height="480"
+                  style={{ 
+                    display: 'block',
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover'
+                  }}
                   data-testid="video-camera-feed"
                 />
                 {isAnalyzing && (
