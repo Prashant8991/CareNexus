@@ -148,7 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  // First Aid API with OpenAI integration
+  // First Aid API with OpenAI integration and fallback
   app.post('/api/first-aid', async (req, res) => {
     try {
       const { scenario, language = 'english' } = req.body;
@@ -157,30 +157,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'scenario is required' });
       }
 
-      const { OpenAI } = await import('openai');
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      let aiResponse: any = null;
+      let isOpenAIAvailable = true;
 
-      const systemPrompt = "You are a certified first-aid trainer. Keep answers short, step-by-step, non-judgemental, emergency-first. If the user indicates unconscious/no-breathing, instruct to call emergency services first and list chest compressions sequence concisely. Always end with 'If in doubt, call your local emergency number.'";
-      
-      const userPrompt = `Provide first aid guidance for: ${scenario}. Respond in ${language}. Format your response as JSON with: answerText (step-by-step instructions), followUps (array of 2 follow-up questions), severityScore (1-10 scale).`;
+      // Try OpenAI first
+      try {
+        const { OpenAI } = await import('openai');
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-      const response = await openai.chat.completions.create({
-        model: "gpt-5",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        response_format: { type: "json_object" }
-      });
+        const systemPrompt = "You are a certified first-aid trainer. Keep answers short, step-by-step, non-judgemental, emergency-first. If the user indicates unconscious/no-breathing, instruct to call emergency services first and list chest compressions sequence concisely. Always end with 'If in doubt, call your local emergency number.'";
+        
+        const userPrompt = `Provide first aid guidance for: ${scenario}. Respond in ${language}. Format your response as JSON with: answerText (step-by-step instructions), followUps (array of 2 follow-up questions), severityScore (1-10 scale).`;
 
-      const aiResponse = JSON.parse(response.choices[0].message.content || '{}');
-      
+        // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        const response = await openai.chat.completions.create({
+          model: "gpt-5",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ],
+          response_format: { type: "json_object" }
+        });
+
+        aiResponse = JSON.parse(response.choices[0].message.content || '{}');
+      } catch (openaiError: any) {
+        console.log('OpenAI unavailable, using fallback system:', openaiError?.message || 'Unknown error');
+        isOpenAIAvailable = false;
+        
+        // Fallback system with pattern-based responses
+        const scenarioLower = scenario.toLowerCase();
+        
+        if (scenarioLower.includes('chok') || scenarioLower.includes('airway')) {
+          aiResponse = {
+            answerText: "For choking (adult):\\n\\n1. Ask 'Are you choking?' - if they can't speak or breathe, proceed\\n2. Call 911 immediately if available\\n3. Stand behind the person, wrap arms around their waist\\n4. Make a fist with one hand, place above the navel\\n5. Grasp fist with other hand, give quick upward thrusts\\n6. Continue until object is expelled or person becomes unconscious\\n7. If unconscious, begin CPR\\n\\nIf in doubt, call your local emergency number.",
+            followUps: ["What if the person becomes unconscious?", "How do I perform the Heimlich maneuver on a child?"],
+            severityScore: 9
+          };
+        } else if (scenarioLower.includes('cpr') || scenarioLower.includes('cardiac') || scenarioLower.includes('heart') || scenarioLower.includes('unconscious')) {
+          aiResponse = {
+            answerText: "For CPR (Adult):\\n\\n1. Call 911 immediately\\n2. Check for responsiveness and breathing\\n3. Place person on firm, flat surface\\n4. Tilt head back, lift chin\\n5. Place heel of hand on center of chest between nipples\\n6. Push hard and fast at least 2 inches deep\\n7. Allow complete chest recoil between compressions\\n8. Compress at rate of 100-120 per minute\\n9. Continue until emergency services arrive\\n\\nIf in doubt, call your local emergency number.",
+            followUps: ["How long should I continue CPR?", "What if I get tired during CPR?"],
+            severityScore: 10
+          };
+        } else if (scenarioLower.includes('cut') || scenarioLower.includes('bleed') || scenarioLower.includes('wound')) {
+          aiResponse = {
+            answerText: "For cuts and bleeding:\\n\\n1. Apply direct pressure with clean cloth or bandage\\n2. Elevate the injured area above heart level if possible\\n3. Do not remove embedded objects\\n4. If bleeding doesn't stop, apply additional dressings over the first\\n5. Seek immediate medical attention for deep cuts\\n6. Watch for signs of shock\\n7. Clean and dress minor cuts after bleeding stops\\n\\nIf in doubt, call your local emergency number.",
+            followUps: ["How do I know if a cut needs stitches?", "What are the signs of shock?"],
+            severityScore: 6
+          };
+        } else if (scenarioLower.includes('burn')) {
+          aiResponse = {
+            answerText: "For burns:\\n\\n1. Remove from heat source immediately\\n2. Cool burn with cool (not cold) running water for 10-15 minutes\\n3. Remove tight items before swelling starts\\n4. Do not break blisters\\n5. Cover with sterile, non-stick dressing\\n6. Take over-the-counter pain medication if needed\\n7. Seek medical care for severe burns (larger than 3 inches, deep, or on face/hands)\\n\\nIf in doubt, call your local emergency number.",
+            followUps: ["When should I go to the hospital for a burn?", "What should I NOT put on a burn?"],
+            severityScore: 5
+          };
+        } else if (scenarioLower.includes('sprain') || scenarioLower.includes('ankle') || scenarioLower.includes('twist')) {
+          aiResponse = {
+            answerText: "For sprains (R.I.C.E. method):\\n\\n1. Rest - avoid activities that cause pain\\n2. Ice - apply for 15-20 minutes every 2-3 hours for first 24-48 hours\\n3. Compression - use elastic bandage (not too tight)\\n4. Elevation - raise injured area above heart level when possible\\n5. Take anti-inflammatory medication as directed\\n6. Seek medical care if unable to bear weight or severe pain\\n\\nIf in doubt, call your local emergency number.",
+            followUps: ["How long does a sprain take to heal?", "When should I see a doctor for a sprain?"],
+            severityScore: 3
+          };
+        } else {
+          aiResponse = {
+            answerText: "General emergency guidance:\\n\\n1. Assess the situation for safety\\n2. Check if person is conscious and responsive\\n3. Call 911 for serious injuries or medical emergencies\\n4. Apply basic first aid principles\\n5. Monitor vital signs if trained\\n6. Stay calm and reassuring\\n7. Do not move person unless absolutely necessary\\n\\nFor specific guidance, please describe the injury or emergency more specifically. If in doubt, call your local emergency number.",
+            followUps: ["What are the signs of a medical emergency?", "How do I check someone's pulse?"],
+            severityScore: 5
+          };
+        }
+      }
+
       // Generate TTS audio (stub implementation)
       let audioUrl: string | null = null;
       try {
         const gTTS = await import('gtts');
-        const gtts = new gTTS.default(aiResponse.answerText, language.substring(0, 2) || 'en');
+        const gtts = new gTTS.default(aiResponse.answerText.replace(/\\n/g, ' '), language.substring(0, 2) || 'en');
         const audioPath = `/tmp/tts_${Date.now()}.mp3`;
         
         await new Promise<void>((resolve, reject) => {
@@ -199,7 +249,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         answerText: aiResponse.answerText,
         followUps: aiResponse.followUps || [],
         severityScore: aiResponse.severityScore || 5,
-        audioUrl
+        audioUrl,
+        fallbackUsed: !isOpenAIAvailable
       });
     } catch (error: any) {
       console.error('First aid API error:', error);

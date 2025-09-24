@@ -19,10 +19,8 @@ import {
   Thermometer,
   Zap,
   Shield,
-  Mic,
   Play,
-  Pause,
-  Volume2
+  Pause
 } from 'lucide-react';
 
 interface FirstAidGuide {
@@ -123,7 +121,6 @@ export default function FirstAid() {
   const [aiQuestion, setAiQuestion] = useState('');
   const [aiAnswer, setAiAnswer] = useState<FirstAidResponse | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const { toast } = useToast();
@@ -258,64 +255,44 @@ export default function FirstAid() {
                   data-testid="textarea-first-aid-scenario"
                 />
                 
-                <div className="flex gap-2">
-                  <Button
-                    onClick={async () => {
-                      if (!aiQuestion.trim()) {
-                        toast({ title: "Please describe the scenario", variant: "destructive" });
-                        return;
-                      }
-                      
-                      setLoadingAI(true);
-                      try {
-                        const response = await fetch('/api/first-aid', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ scenario: aiQuestion.trim(), language: 'english' })
-                        });
-                        const data = await response.json();
-                        setAiAnswer(data);
-                      } catch (error) {
-                        toast({ title: "Error getting first aid guidance", description: "Please try again", variant: "destructive" });
-                      } finally {
-                        setLoadingAI(false);
-                      }
-                    }}
-                    disabled={loadingAI}
-                    className="flex-1"
-                    data-testid="button-get-first-aid-guidance"
-                  >
-                    {loadingAI ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                        Getting Guidance...
-                      </>
-                    ) : (
-                      <>
-                        <Heart className="w-4 h-4 mr-2" />
-                        Get First Aid Guidance
-                      </>
-                    )}
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (isRecording) {
-                        setIsRecording(false);
-                        toast({ title: "Voice recording stopped", description: "Voice recording feature coming soon" });
-                      } else {
-                        setIsRecording(true);
-                        toast({ title: "Voice recording started", description: "Voice recording feature coming soon" });
-                        setTimeout(() => setIsRecording(false), 3000);
-                      }
-                    }}
-                    className={isRecording ? 'bg-destructive text-destructive-foreground' : ''}
-                    data-testid="button-voice-record"
-                  >
-                    <Mic className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
-                  </Button>
-                </div>
+                <Button
+                  onClick={async () => {
+                    if (!aiQuestion.trim()) {
+                      toast({ title: "Please describe the scenario", variant: "destructive" });
+                      return;
+                    }
+                    
+                    setLoadingAI(true);
+                    try {
+                      const response = await fetch('/api/first-aid', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ scenario: aiQuestion.trim(), language: 'english' })
+                      });
+                      const data = await response.json();
+                      setAiAnswer(data);
+                    } catch (error) {
+                      toast({ title: "Error getting first aid guidance", description: "Please try again", variant: "destructive" });
+                    } finally {
+                      setLoadingAI(false);
+                    }
+                  }}
+                  disabled={loadingAI}
+                  className="w-full"
+                  data-testid="button-get-first-aid-guidance"
+                >
+                  {loadingAI ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                      Getting Guidance...
+                    </>
+                  ) : (
+                    <>
+                      <Heart className="w-4 h-4 mr-2" />
+                      Get First Aid Guidance
+                    </>
+                  )}
+                </Button>
               </div>
               
               {aiAnswer && (
