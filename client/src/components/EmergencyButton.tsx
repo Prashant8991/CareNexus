@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Phone } from 'lucide-react';
 import { 
@@ -20,12 +21,28 @@ interface EmergencyButtonProps {
 
 export function EmergencyButton({ size = 'default', className = '' }: EmergencyButtonProps) {
   const [isEmergencyActive, setIsEmergencyActive] = useState(false);
+  const { toast } = useToast();
 
   const handleEmergencyCall = () => {
     setIsEmergencyActive(true);
-    console.log('Emergency services contacted');
-    // TODO: Integrate with Twilio for real emergency calls
-    setTimeout(() => setIsEmergencyActive(false), 3000);
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        // @ts-expect-error - vibrate exists in supported browsers
+        navigator.vibrate?.(200);
+      }
+      window.open('tel:101', '_self');
+      toast({
+        title: 'Calling Emergency Services',
+        description: 'Dialling 101... Stay calm and follow operator instructions.',
+      });
+    } catch (_err) {
+      toast({
+        title: 'Unable to start call',
+        description: 'Please dial 101 manually from your phone.',
+      });
+    } finally {
+      setTimeout(() => setIsEmergencyActive(false), 3000);
+    }
   };
 
   return (

@@ -14,6 +14,7 @@ import {
   Heart,
   AlertTriangle
 } from 'lucide-react';
+import React from 'react'; // Added for useEffect
 
 interface Hospital {
   id: string;
@@ -26,69 +27,81 @@ interface Hospital {
   hours: string;
   services: string[];
   emergencyRoom: boolean;
+  lat?: number;
+  lng?: number;
 }
 
 // TODO: Replace with real hospital data from Google Maps API
 const mockHospitals: Hospital[] = [
   {
     id: '1',
-    name: 'City General Hospital',
-    address: '123 Main Street, Downtown',
-    phone: '+1 (555) 123-4567',
+    name: 'AIIMS Delhi',
+    address: 'Sri Aurobindo Marg, Ansari Nagar, New Delhi',
+    phone: '+91 11 2658 8500',
     distance: 1.2,
-    rating: 4.5,
+    rating: 4.7,
     type: 'general',
     hours: '24/7',
     services: ['Emergency Care', 'Surgery', 'Cardiology', 'Pediatrics'],
-    emergencyRoom: true
+    emergencyRoom: true,
+    lat: 28.5672,
+    lng: 77.2100,
   },
   {
     id: '2',
-    name: 'Emergency Medical Center',
-    address: '456 Oak Avenue, Midtown',
-    phone: '+1 (555) 234-5678',
+    name: 'Fortis Hospital, Bengaluru',
+    address: 'Bannerghatta Road, Bengaluru, Karnataka',
+    phone: '+91 80 6621 4444',
     distance: 2.1,
-    rating: 4.2,
+    rating: 4.4,
     type: 'emergency',
     hours: '24/7',
     services: ['Emergency Care', 'Trauma Center', 'Critical Care'],
-    emergencyRoom: true
+    emergencyRoom: true,
+    lat: 12.9101,
+    lng: 77.6030,
   },
   {
     id: '3',
-    name: 'QuickCare Urgent Care',
-    address: '789 Pine Street, Westside',
-    phone: '+1 (555) 345-6789',
+    name: 'Apollo Clinic, Pune',
+    address: 'Viman Nagar, Pune, Maharashtra',
+    phone: '+91 20 6600 0000',
     distance: 0.8,
-    rating: 4.0,
+    rating: 4.1,
     type: 'urgent-care',
     hours: '7:00 AM - 10:00 PM',
     services: ['Minor Injuries', 'X-Rays', 'Lab Tests', 'Vaccinations'],
-    emergencyRoom: false
+    emergencyRoom: false,
+    lat: 18.5679,
+    lng: 73.9143,
   },
   {
     id: '4',
-    name: 'Children\'s Medical Center',
-    address: '321 Elm Drive, Northside',
-    phone: '+1 (555) 456-7890',
+    name: 'Rainbow Children\'s Hospital, Hyderabad',
+    address: 'Banjara Hills, Hyderabad, Telangana',
+    phone: '+91 40 4000 1066',
     distance: 3.5,
-    rating: 4.8,
+    rating: 4.6,
     type: 'specialty',
     hours: '6:00 AM - 8:00 PM',
     services: ['Pediatrics', 'Pediatric Emergency', 'NICU', 'Child Psychology'],
-    emergencyRoom: true
+    emergencyRoom: true,
+    lat: 17.4203,
+    lng: 78.4482,
   },
   {
     id: '5',
-    name: 'Metro Urgent Care',
-    address: '654 Maple Lane, Eastside',
-    phone: '+1 (555) 567-8901',
+    name: 'Max Urgent Care, Noida',
+    address: 'Sector 19, Noida, Uttar Pradesh',
+    phone: '+91 120 662 9999',
     distance: 1.9,
-    rating: 3.8,
+    rating: 3.9,
     type: 'urgent-care',
     hours: '8:00 AM - 9:00 PM',
     services: ['Walk-in Care', 'Minor Surgery', 'Occupational Health'],
-    emergencyRoom: false
+    emergencyRoom: false,
+    lat: 28.5860,
+    lng: 77.3300,
   }
 ];
 
@@ -96,17 +109,47 @@ export default function Hospitals() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [emergencyOnly, setEmergencyOnly] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy?: number; timestamp?: number } | null>(null);
+  const [locStatus, setLocStatus] = useState<'idle' | 'locating' | 'granted' | 'denied' | 'error'>('idle');
+  const [watchId, setWatchId] = useState<number | null>(null);
+  const [liveHospitals, setLiveHospitals] = useState<Hospital[] | null>(null);
+  const [loadingLive, setLoadingLive] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
-  const filteredHospitals = mockHospitals.filter(hospital => {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const distanceKm = (a: {lat:number;lng:number}, b: {lat:number;lng:number}) => {
+    const R = 6371; // km
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const h = Math.sin(dLat/2)**2 + Math.sin(dLng/2)**2 * Math.cos(lat1) * Math.cos(lat2);
+    return 2 * R * Math.asin(Math.sqrt(h));
+  };
+
+  let filteredHospitals = (liveHospitals && liveHospitals.length > 0 ? liveHospitals : mockHospitals).filter(hospital => {
     const matchesSearch = hospital.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          hospital.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         hospital.services.some(service => service.toLowerCase().includes(searchTerm.toLowerCase()));
+                         (hospital.services && hospital.services.some(service => service.toLowerCase().includes(searchTerm.toLowerCase())));
     
     const matchesType = selectedType === 'all' || hospital.type === selectedType;
     const matchesEmergency = !emergencyOnly || hospital.emergencyRoom;
     
     return matchesSearch && matchesType && matchesEmergency;
   });
+
+  // If we have user location and hospital coords, sort by current distance
+  if (userLocation) {
+    filteredHospitals = filteredHospitals
+      .map(h => {
+        let d = h.distance;
+        if (h.lat !== undefined && h.lng !== undefined) {
+          d = distanceKm({lat: userLocation.lat, lng: userLocation.lng}, {lat: h.lat, lng: h.lng});
+        }
+        return { ...h, _dynamicDistance: d } as Hospital & { _dynamicDistance: number };
+      })
+      .sort((a,b) => (a as any)._dynamicDistance - (b as any)._dynamicDistance) as any;
+  }
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -133,8 +176,92 @@ export default function Hospitals() {
   const handleDirections = (address: string) => {
     // TODO: Integrate with Google Maps API for real directions
     const encodedAddress = encodeURIComponent(address);
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, '_blank');
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`,'_blank');
   };
+
+  const enableLocation = () => {
+    if (!('geolocation' in navigator)) {
+      setLocStatus('error');
+      return;
+    }
+    setLocStatus('locating');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        setUserLocation({ lat: latitude, lng: longitude, accuracy, timestamp: pos.timestamp });
+        setLocStatus('granted');
+      },
+      (err) => {
+        setLocStatus(err.code === 1 ? 'denied' : 'error');
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+    );
+  };
+
+  const startLiveTrace = () => {
+    if (!('geolocation' in navigator)) {
+      setLocStatus('error');
+      return;
+    }
+    if (watchId !== null) return;
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        setUserLocation({ lat: latitude, lng: longitude, accuracy, timestamp: pos.timestamp });
+        setLocStatus('granted');
+      },
+      (err) => {
+        setLocStatus(err.code === 1 ? 'denied' : 'error');
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 2000 }
+    );
+    setWatchId(id as unknown as number);
+  };
+
+  const stopLiveTrace = () => {
+    if (watchId !== null && 'geolocation' in navigator) {
+      navigator.geolocation.clearWatch(watchId);
+      setWatchId(null);
+    }
+  };
+
+  // Fetch nearby hospitals from backend Overpass proxy when we have location
+  React.useEffect(() => {
+    const fetchNearby = async () => {
+      if (!userLocation) return;
+      try {
+        setLoadingLive(true);
+        setLiveError(null);
+        const url = `/api/hospitals/nearby?lat=${userLocation.lat}&lng=${userLocation.lng}&radius=4000`;
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          const text = await resp.text();
+          throw new Error(text || 'Failed to load nearby hospitals');
+        }
+        const data = await resp.json();
+        const hospitals: Hospital[] = (data.hospitals || []).map((h: any, idx: number) => ({
+          id: h.id || String(idx),
+          name: h.name || 'Unknown Facility',
+          address: h.address || 'Address not available',
+          phone: h.phone || '',
+          distance: 0,
+          rating: 4.0,
+          type: 'general',
+          hours: '24/7',
+          services: ['Emergency Care'],
+          emergencyRoom: true,
+          lat: h.lat,
+          lng: h.lng,
+        }));
+        setLiveHospitals(hospitals);
+      } catch (e: any) {
+        setLiveError(e?.message || 'Failed to load hospitals');
+      } finally {
+        setLoadingLive(false);
+      }
+    };
+    fetchNearby();
+  }, [userLocation?.lat, userLocation?.lng]);
 
   return (
     <div className="min-h-screen bg-background py-8">
@@ -218,7 +345,11 @@ export default function Hospitals() {
                         <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                           <div className="flex items-center space-x-1">
                             <MapPin className="w-4 h-4" />
-                            <span>{hospital.distance} miles away</span>
+                            <span>
+                              {userLocation && (hospital as any)._dynamicDistance !== undefined
+                                ? `${((hospital as any)._dynamicDistance as number).toFixed(1)} km away`
+                                : `${hospital.distance} miles away`}
+                            </span>
                           </div>
                           <div className="flex items-center space-x-1">
                             <Star className="w-4 h-4 fill-current text-chart-3" />
@@ -283,7 +414,7 @@ export default function Hospitals() {
                         variant="destructive" 
                         size="sm"
                         className="w-full"
-                        onClick={() => handleCall('911')}
+                        onClick={() => handleCall('101')}
                         data-testid={`button-emergency-${hospital.id}`}
                       >
                         <AlertTriangle className="w-4 h-4 mr-2" />
@@ -314,7 +445,7 @@ export default function Hospitals() {
 
         {/* Location Permission Notice */}
         <Card className="mt-12 border-chart-2 bg-chart-2/5">
-          <CardContent className="p-6">
+          <CardContent className="p-6 space-y-3">
             <div className="flex items-start space-x-3">
               <MapPin className="w-5 h-5 text-chart-2 mt-1 flex-shrink-0" />
               <div>
@@ -325,6 +456,52 @@ export default function Hospitals() {
                 </p>
               </div>
             </div>
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+              <div>
+                <h4 className="font-semibold">Current Location</h4>
+                <p className="text-sm text-muted-foreground">
+                  {locStatus === 'granted' && userLocation
+                    ? `Lat ${userLocation.lat.toFixed(5)}, Lng ${userLocation.lng.toFixed(5)} • ±${Math.round(userLocation.accuracy || 0)}m`
+                    : locStatus === 'locating'
+                    ? 'Locating…'
+                    : 'Enable location sharing for faster emergency response'}
+                </p>
+                {loadingLive && <p className="text-xs text-muted-foreground">Loading nearby hospitals…</p>}
+                {liveError && <p className="text-xs text-destructive">{liveError}</p>}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={enableLocation} disabled={locStatus === 'locating'} data-testid="button-enable-location">
+                  {locStatus === 'locating' ? 'Locating…' : 'Enable Location'}
+                </Button>
+                <Button variant="secondary" size="sm" onClick={watchId === null ? startLiveTrace : stopLiveTrace}>
+                  {watchId === null ? 'Use Live Location' : 'Stop Live'}
+                </Button>
+              </div>
+            </div>
+            {locStatus === 'denied' && (
+              <p className="text-xs text-destructive">Permission denied. Enable location permissions in your browser settings.</p>
+            )}
+            {locStatus === 'error' && (
+              <p className="text-xs text-destructive">Could not fetch your location on this device.</p>
+            )}
+            {userLocation && (
+              <div className="flex flex-wrap gap-2">
+                <Button 
+                  variant="secondary" 
+                  size="sm"
+                  onClick={() => window.open(`https://www.google.com/maps?q=${userLocation.lat},${userLocation.lng}`, '_blank')}
+                >
+                  Open in Google Maps
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  size="sm"
+                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=hospitals&center=${userLocation.lat},${userLocation.lng}`, '_blank')}
+                >
+                  Hospitals Near Me
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

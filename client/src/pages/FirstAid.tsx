@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmergencyButton } from '@/components/EmergencyButton';
+import { FirstAidAssistant } from '@/components/FirstAidAssistant';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Search, 
   Heart, 
@@ -37,7 +39,7 @@ const firstAidGuides: FirstAidGuide[] = [
     emergencyCall: true,
     icon: Heart,
     steps: [
-      'Call 911 immediately',
+      'Call 101 immediately',
       'Place person on firm, flat surface',
       'Tilt head back, lift chin',
       'Place heel of hand on center of chest',
@@ -56,7 +58,7 @@ const firstAidGuides: FirstAidGuide[] = [
     icon: AlertTriangle,
     steps: [
       'Ask "Are you choking?" if they can speak',
-      'Call 911 if they cannot speak or breathe',
+      'Call 101 if they cannot speak or breathe',
       'Stand behind person, wrap arms around waist',
       'Make fist with one hand above navel',
       'Grasp fist with other hand',
@@ -105,6 +107,10 @@ const firstAidGuides: FirstAidGuide[] = [
 
 export default function FirstAid() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [aiQuestion, setAiQuestion] = useState('');
+  const [aiAnswer, setAiAnswer] = useState<string | null>(null);
+  const [loadingAI, setLoadingAI] = useState(false);
+  const { toast } = useToast();
   const [selectedGuide, setSelectedGuide] = useState<FirstAidGuide | null>(null);
 
   const filteredGuides = firstAidGuides.filter(guide =>
@@ -144,7 +150,7 @@ export default function FirstAid() {
                 <div className="flex items-center space-x-3">
                   <Phone className="w-6 h-6 text-destructive" />
                   <div>
-                    <h3 className="font-bold text-destructive text-lg">CALL 911 IMMEDIATELY</h3>
+                    <h3 className="font-bold text-destructive text-lg">CALL 101 IMMEDIATELY</h3>
                     <p className="text-destructive/80">
                       This is a life-threatening emergency. Call emergency services before following these steps.
                     </p>
@@ -215,6 +221,60 @@ export default function FirstAid() {
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* AI First Aid Assistant */}
+        <FirstAidAssistant />
+
+        {/* Ask AI (Demo) - no network calls */}
+        <div className="mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Ask the Assistant (Demo)</CardTitle>
+              <CardDescription>Common first aid Q&A without internet.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="e.g., What should I do for a deep cut?"
+                  value={aiQuestion}
+                  onChange={(e) => setAiQuestion(e.target.value)}
+                  disabled={loadingAI}
+                />
+                <Button
+                  onClick={async () => {
+                    const q = aiQuestion.trim().toLowerCase();
+                    if (!q) return;
+                    setLoadingAI(true);
+                    setTimeout(() => {
+                      // Simple pattern-based demo answers
+                      if (q.includes('cut') || q.includes('bleed')) {
+                        setAiAnswer('For a deep cut: 1) Apply firm pressure with a clean cloth. 2) Rinse gently with clean water once bleeding slows. 3) Apply a sterile dressing. 4) If bleeding is heavy, won’t stop, or the wound is deep/dirty, seek urgent care and consider calling 101.');
+                      } else if (q.includes('burn')) {
+                        setAiAnswer('For minor burns: Cool the area under cool (not cold) running water for 10–15 minutes. Do not apply ice, oils, or butter. Cover loosely with a sterile, non-stick dressing. Seek medical care for large or severe burns.');
+                      } else if (q.includes('choke') || q.includes('choking')) {
+                        setAiAnswer('For choking (adult): Ask “Are you choking?” If they can’t speak or breathe, stand behind, place a fist above the navel, grasp with the other hand, and give quick upward thrusts. Repeat until object is expelled or they become unresponsive. Call 101 if breathing is not restored.');
+                      } else if (q.includes('sprain') || q.includes('ankle')) {
+                        setAiAnswer('For a sprain: Use R.I.C.E. – Rest, Ice (15–20 min on/off), Compression (elastic bandage, not too tight), Elevation above heart. If severe pain, inability to bear weight, or deformity, seek medical evaluation.');
+                      } else if (q.includes('chest pain')) {
+                        setAiAnswer('Chest pain can be serious. Have the person rest, avoid exertion. If pain is heavy, crushing, radiates to arm/jaw, with sweating or nausea, call 101 immediately. Consider aspirin if not allergic and advised by a clinician.');
+                      } else {
+                        setAiAnswer('I do not have a specific demo answer. Describe the injury (e.g., cut, burn, choking, sprain, chest pain) for tailored first aid steps. For severe symptoms, call 101.');
+                      }
+                      setLoadingAI(false);
+                    }, 300);
+                  }}
+                  disabled={loadingAI}
+                >
+                  {loadingAI ? 'Thinking…' : 'Ask'}
+                </Button>
+              </div>
+              {aiAnswer && (
+                <div className="rounded-md border p-3 text-sm whitespace-pre-wrap">
+                  {aiAnswer}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
         {/* Header */}
         <div className="text-center mb-12">
           <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
@@ -282,7 +342,7 @@ export default function FirstAid() {
                 {guide.emergencyCall && (
                   <div className="mt-3 flex items-center space-x-2 text-sm text-destructive">
                     <Phone className="w-4 h-4" />
-                    <span>Call 911 first</span>
+                    <span>Call 101 first</span>
                   </div>
                 )}
               </CardContent>
