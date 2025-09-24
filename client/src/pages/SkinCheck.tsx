@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { ImageUpload } from '@/components/ImageUpload';
+import { LiveCameraFeed } from '@/components/LiveCameraFeed';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { apiRequest } from '@/lib/queryClient';
 import { 
   Camera, 
@@ -10,7 +13,9 @@ import {
   Clock,
   Shield,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  Upload,
+  Video
 } from 'lucide-react';
 
 interface AnalysisResult {
@@ -113,184 +118,207 @@ export default function SkinCheck() {
           </CardContent>
         </Card>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Upload Section */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Upload Skin Photo</CardTitle>
-                <CardDescription>
-                  Take a clear, well-lit photo of the area of concern. Ensure good lighting and focus.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ImageUpload 
-                  onImageUpload={handleImageUpload}
-                  onImageRemove={handleImageRemove}
-                  maxSizeInMB={5}
-                  acceptedFormats={['image/jpeg', 'image/png']}
-                />
-                
-                {uploadedFile && !analysisResult && (
-                  <div className="mt-6">
-                    <Button 
-                      onClick={handleAnalyze}
-                      disabled={isAnalyzing}
-                      className="w-full"
-                      size="lg"
-                      data-testid="button-analyze-skin"
-                    >
-                      {isAnalyzing ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="w-4 h-4 mr-2" />
-                          Analyze Skin
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Analysis Progress */}
-            {isAnalyzing && (
-              <Card>
-                <CardContent className="p-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-primary" />
-                      <span className="text-sm font-medium">AI Analysis in Progress</span>
-                    </div>
-                    <Progress value={66} className="h-2" />
-                    <p className="text-xs text-muted-foreground">
-                      Processing image with advanced machine learning algorithms...
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+        {/* Analysis Options */}
+        <Tabs defaultValue="upload" className="space-y-8">
+          <div className="flex justify-center">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="upload" className="flex items-center space-x-2" data-testid="tab-upload">
+                <Upload className="w-4 h-4" />
+                <span>Upload Photo</span>
+              </TabsTrigger>
+              <TabsTrigger value="live" className="flex items-center space-x-2" data-testid="tab-live">
+                <Video className="w-4 h-4" />
+                <span>Live Camera</span>
+                <Badge variant="secondary" className="ml-2 text-xs">NEW</Badge>
+              </TabsTrigger>
+            </TabsList>
           </div>
 
-          {/* Results Section */}
-          <div className="space-y-6">
-            {analysisResult && (
-              <>
-                <Card className="border-primary/20 bg-gradient-to-br from-background to-primary/5">
+          <TabsContent value="upload">
+            <div className="grid lg:grid-cols-2 gap-8">
+              {/* Upload Section */}
+              <div className="space-y-6">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Sparkles className="w-5 h-5 text-primary" />
-                      <span>Analysis Results</span>
-                    </CardTitle>
+                    <CardTitle>Upload Skin Photo</CardTitle>
                     <CardDescription>
-                      AI-powered skin health assessment completed
+                      Take a clear, well-lit photo of the area of concern. Ensure good lighting and focus.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Condition */}
-                    <div className="text-center p-6 bg-primary/5 rounded-lg border border-primary/10">
-                      <h3 className="text-2xl font-bold text-foreground mb-2 capitalize">
-                        {analysisResult.condition}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">Detected condition</p>
-                    </div>
-
-                    {/* Confidence */}
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold">Confidence Level</span>
-                        <span className="text-lg font-bold text-primary">
-                          {Math.round(analysisResult.confidence * 100)}%
-                        </span>
-                      </div>
-                      <Progress 
-                        value={analysisResult.confidence * 100} 
-                        className="h-3 bg-muted"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Higher confidence indicates more accurate analysis
-                      </p>
-                    </div>
-
-                    {/* Tips */}
-                    <div className="space-y-3">
-                      <h4 className="font-semibold flex items-center space-x-2">
-                        <CheckCircle className="w-4 h-4 text-chart-2" />
-                        <span>Recommended Actions</span>
-                      </h4>
-                      <div className="bg-muted/50 rounded-lg p-4">
-                        <ul className="space-y-3">
-                          {analysisResult.tips.map((tip, index) => (
-                            <li key={index} className="flex items-start space-x-3">
-                              <div className="w-2 h-2 rounded-full bg-chart-2 mt-2 flex-shrink-0"></div>
-                              <span className="text-sm text-foreground capitalize">{tip}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Source */}
-                    {analysisResult.source && (
-                      <div className="text-xs text-muted-foreground">
-                        Source: {analysisResult.source.provider} · {analysisResult.source.model}{' '}
-                        {analysisResult.source.url && (
-                          <a className="underline" href={analysisResult.source.url} target="_blank" rel="noreferrer">model card</a>
-                        )}
+                  <CardContent>
+                    <ImageUpload 
+                      onImageUpload={handleImageUpload}
+                      onImageRemove={handleImageRemove}
+                      maxSizeInMB={5}
+                      acceptedFormats={['image/jpeg', 'image/png']}
+                    />
+                    
+                    {uploadedFile && !analysisResult && (
+                      <div className="mt-6">
+                        <Button 
+                          onClick={handleAnalyze}
+                          disabled={isAnalyzing}
+                          className="w-full"
+                          size="lg"
+                          data-testid="button-analyze-skin"
+                        >
+                          {isAnalyzing ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                              Analyzing...
+                            </>
+                          ) : (
+                            <>
+                              <Camera className="w-4 h-4 mr-2" />
+                              Analyze Skin
+                            </>
+                          )}
+                        </Button>
                       </div>
                     )}
-
-                  {/* Diagnostic note if a placeholder model is used */}
-                  {analysisResult.isTestModel && (
-                    <div className="text-xs text-amber-600">
-                      Note: Using a placeholder test model. Configure HF_MODEL_ID to a dermatology model (e.g. HAM10000/ISIC) for meaningful predictions.
-                    </div>
-                  )}
                   </CardContent>
                 </Card>
 
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button 
-                    variant="outline" 
-                    onClick={handleStartNewAnalysis}
-                    className="flex-1 group hover:scale-105 transition-all duration-200"
-                    data-testid="button-start-new-analysis"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
-                    Start New Analysis
-                  </Button>
-                  <Button 
-                    onClick={() => console.log('Save result')}
-                    className="flex-1 group hover:scale-105 transition-all duration-200"
-                    data-testid="button-save-result"
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Save Result
-                  </Button>
-                </div>
-              </>
-            )}
-            
-            {!uploadedFile && !analysisResult && (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Camera className="w-8 h-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="font-semibold text-lg mb-2">Ready for Analysis</h3>
-                  <p className="text-muted-foreground">
-                    Upload a photo to get started with AI-powered skin analysis
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
+                {/* Analysis Progress */}
+                {isAnalyzing && (
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-2">
+                          <Clock className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">AI Analysis in Progress</span>
+                        </div>
+                        <Progress value={66} className="h-2" />
+                        <p className="text-xs text-muted-foreground">
+                          Processing image with advanced machine learning algorithms...
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Results Section */}
+              <div className="space-y-6">
+                {analysisResult && (
+                  <>
+                    <Card className="border-primary/20 bg-gradient-to-br from-background to-primary/5">
+                      <CardHeader>
+                        <CardTitle className="flex items-center space-x-2">
+                          <Sparkles className="w-5 h-5 text-primary" />
+                          <span>Analysis Results</span>
+                        </CardTitle>
+                        <CardDescription>
+                          AI-powered skin health assessment completed
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {/* Condition */}
+                        <div className="text-center p-6 bg-primary/5 rounded-lg border border-primary/10">
+                          <h3 className="text-2xl font-bold text-foreground mb-2 capitalize">
+                            {analysisResult.condition}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">Detected condition</p>
+                        </div>
+
+                        {/* Confidence */}
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold">Confidence Level</span>
+                            <span className="text-lg font-bold text-primary">
+                              {Math.round(analysisResult.confidence * 100)}%
+                            </span>
+                          </div>
+                          <Progress 
+                            value={analysisResult.confidence * 100} 
+                            className="h-3 bg-muted"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Higher confidence indicates more accurate analysis
+                          </p>
+                        </div>
+
+                        {/* Tips */}
+                        <div className="space-y-3">
+                          <h4 className="font-semibold flex items-center space-x-2">
+                            <CheckCircle className="w-4 h-4 text-chart-2" />
+                            <span>Recommended Actions</span>
+                          </h4>
+                          <div className="bg-muted/50 rounded-lg p-4">
+                            <ul className="space-y-3">
+                              {analysisResult.tips.map((tip, index) => (
+                                <li key={index} className="flex items-start space-x-3">
+                                  <div className="w-2 h-2 rounded-full bg-chart-2 mt-2 flex-shrink-0"></div>
+                                  <span className="text-sm text-foreground capitalize">{tip}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+
+                        {/* Source */}
+                        {analysisResult.source && (
+                          <div className="text-xs text-muted-foreground">
+                            Source: {analysisResult.source.provider} · {analysisResult.source.model}{' '}
+                            {analysisResult.source.url && (
+                              <a className="underline" href={analysisResult.source.url} target="_blank" rel="noreferrer">model card</a>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Diagnostic note if a placeholder model is used */}
+                        {analysisResult.isTestModel && (
+                          <div className="text-xs text-amber-600">
+                            Note: Using a placeholder test model. Configure HF_MODEL_ID to a dermatology model (e.g. HAM10000/ISIC) for meaningful predictions.
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Button 
+                        variant="outline" 
+                        onClick={handleStartNewAnalysis}
+                        className="flex-1 group hover:scale-105 transition-all duration-200"
+                        data-testid="button-start-new-analysis"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
+                        Start New Analysis
+                      </Button>
+                      <Button 
+                        onClick={() => console.log('Save result')}
+                        className="flex-1 group hover:scale-105 transition-all duration-200"
+                        data-testid="button-save-result"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Save Result
+                      </Button>
+                    </div>
+                  </>
+                )}
+                
+                {!uploadedFile && !analysisResult && (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Camera className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="font-semibold text-lg mb-2">Ready for Analysis</h3>
+                      <p className="text-muted-foreground">
+                        Upload a photo to get started with AI-powered skin analysis
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="live">
+            <LiveCameraFeed />
+          </TabsContent>
+        </Tabs>
 
         {/* Tips */}
         <Card className="mt-12">
