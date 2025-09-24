@@ -268,11 +268,13 @@ export default function FirstAid() {
                       
                       setLoadingAI(true);
                       try {
-                        const response = await apiRequest('/api/first-aid', {
+                        const response = await fetch('/api/first-aid', {
                           method: 'POST',
-                          body: { scenario: aiQuestion.trim(), language: 'english' }
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ scenario: aiQuestion.trim(), language: 'english' })
                         });
-                        setAiAnswer(response);
+                        const data = await response.json();
+                        setAiAnswer(data);
                       } catch (error) {
                         toast({ title: "Error getting first aid guidance", description: "Please try again", variant: "destructive" });
                       } finally {

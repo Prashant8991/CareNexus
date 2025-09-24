@@ -174,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         response_format: { type: "json_object" }
       });
 
-      const aiResponse = JSON.parse(response.choices[0].message.content);
+      const aiResponse = JSON.parse(response.choices[0].message.content || '{}');
       
       // Generate TTS audio (stub implementation)
       let audioUrl: string | null = null;
