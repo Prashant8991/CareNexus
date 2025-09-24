@@ -1,0 +1,12 @@
+Problem Description: Live Webcam Stream Not Rendering in Web 
+1. Project Overview
+I am developing a web application called "Live Skin Analysis." The application's core functionality is to use a device's webcam to capture a real-time video stream of the user's face, process the video frames to detect skin conditions, and display both the live video and the analysis results on the screen simultaneously.
+2. The Core Issue
+The primary problem is that the live video feed from the webcam is not visually rendering in the designated area of the user interface. Although the camera is activated (confirmed by the hardware indicator light being on), the space where the video should appear remains blank.
+3. Observed Behavior (Symptoms)
+Camera Activation: The browser correctly requests permission to use the camera, and upon granting it, the camera's physical indicator light turns on. This confirms that the application has successfully accessed the camera hardware.
+Blank Video Element: The main content area of the UI, which is intended to display the live feed, is empty. There is no video, no black screen, no error message—just the blank background of the container.
+Background Processing Works: Despite the lack of a visible video stream, the application's backend or analysis logic appears to be functioning. The UI displays "Live Detection" results, such as "Normal Skin" with a "60% confidence" score. This strongly suggests that the application is successfully capturing frames from the camera stream and processing them, but failing only at the step of rendering the stream to the user.
+UI Controls are Visible: All other UI elements, including the title, description, and control buttons ("Stop Camera," "Analyze Now," etc.), are rendered correctly and are visible.
+4. Expected Behavior
+The application should display a continuous, real-time video feed from the user's webcam within the large, central container on the page. The analysis results ("Normal Skin," etc.) should be displayed alongside or overlaid on this live video feed.
