@@ -2,23 +2,21 @@ import { useState } from 'react';
 import { ImageUpload } from '@/components/ImageUpload';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { apiRequest } from '@/lib/queryClient';
 import { 
   Camera, 
   CheckCircle, 
-  AlertTriangle,
-  Info,
   Clock,
-  Shield
+  Shield,
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 
 interface AnalysisResult {
   condition: string;
   confidence: number;
-  riskLevel: 'low' | 'medium' | 'high';
-  recommendations: string[];
-  shouldConsultDoctor: boolean;
+  tips: string[];
 }
 
 export default function SkinCheck() {
@@ -41,44 +39,41 @@ export default function SkinCheck() {
     
     setIsAnalyzing(true);
     
-    // TODO: Replace with real AI analysis API call
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // Mock analysis result
-    const mockResult: AnalysisResult = {
-      condition: 'Normal Skin Condition',
-      confidence: 85,
-      riskLevel: 'low',
-      recommendations: [
-        'Continue regular skin monitoring',
-        'Use SPF 30+ sunscreen daily',
-        'Maintain good hydration',
-        'Consider monthly self-examinations'
-      ],
-      shouldConsultDoctor: false
-    };
-    
-    setAnalysisResult(mockResult);
-    setIsAnalyzing(false);
-  };
-
-  const getRiskColor = (riskLevel: string) => {
-    switch (riskLevel) {
-      case 'low': return 'bg-chart-2 text-white';
-      case 'medium': return 'bg-chart-3 text-white';
-      case 'high': return 'bg-destructive text-destructive-foreground';
-      default: return 'bg-muted text-muted-foreground';
+    try {
+      // Create FormData to send the image file
+      const formData = new FormData();
+      formData.append('image', uploadedFile);
+      
+      // Since we can't use apiRequest with FormData directly, we'll use fetch
+      // But for now, we'll simulate the API call with a mock response as requested
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      
+      // Mock API response in the exact format requested
+      const mockResult: AnalysisResult = {
+        condition: "mild acne", 
+        confidence: 0.78,
+        tips: ["gentle cleansing", "see dermatologist if painful"]
+      };
+      
+      setAnalysisResult(mockResult);
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      // Set a fallback result in case of error
+      setAnalysisResult({
+        condition: "analysis failed",
+        confidence: 0,
+        tips: ["Please try uploading a clearer image", "Ensure good lighting"]
+      });
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
-  const getRiskIcon = (riskLevel: string) => {
-    switch (riskLevel) {
-      case 'low': return CheckCircle;
-      case 'medium': return Info;
-      case 'high': return AlertTriangle;
-      default: return Info;
-    }
+  const handleStartNewAnalysis = () => {
+    setUploadedFile(null);
+    setAnalysisResult(null);
   };
 
   return (
@@ -181,72 +176,79 @@ export default function SkinCheck() {
           <div className="space-y-6">
             {analysisResult && (
               <>
-                <Card>
+                <Card className="border-primary/20 bg-gradient-to-br from-background to-primary/5">
                   <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      Analysis Results
-                      <Badge className={getRiskColor(analysisResult.riskLevel)}>
-                        {analysisResult.riskLevel.toUpperCase()} RISK
-                      </Badge>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      <span>Analysis Results</span>
                     </CardTitle>
+                    <CardDescription>
+                      AI-powered skin health assessment completed
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">{analysisResult.condition}</h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Confidence Level</span>
-                          <span className="font-medium">{analysisResult.confidence}%</span>
-                        </div>
-                        <Progress value={analysisResult.confidence} className="h-2" />
+                    {/* Condition */}
+                    <div className="text-center p-6 bg-primary/5 rounded-lg border border-primary/10">
+                      <h3 className="text-2xl font-bold text-foreground mb-2 capitalize">
+                        {analysisResult.condition}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">Detected condition</p>
+                    </div>
+
+                    {/* Confidence */}
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold">Confidence Level</span>
+                        <span className="text-lg font-bold text-primary">
+                          {Math.round(analysisResult.confidence * 100)}%
+                        </span>
+                      </div>
+                      <Progress 
+                        value={analysisResult.confidence * 100} 
+                        className="h-3 bg-muted"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Higher confidence indicates more accurate analysis
+                      </p>
+                    </div>
+
+                    {/* Tips */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold flex items-center space-x-2">
+                        <CheckCircle className="w-4 h-4 text-chart-2" />
+                        <span>Recommended Actions</span>
+                      </h4>
+                      <div className="bg-muted/50 rounded-lg p-4">
+                        <ul className="space-y-3">
+                          {analysisResult.tips.map((tip, index) => (
+                            <li key={index} className="flex items-start space-x-3">
+                              <div className="w-2 h-2 rounded-full bg-chart-2 mt-2 flex-shrink-0"></div>
+                              <span className="text-sm text-foreground capitalize">{tip}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     </div>
-
-                    <div>
-                      <h4 className="font-semibold mb-3">Recommendations</h4>
-                      <ul className="space-y-2">
-                        {analysisResult.recommendations.map((rec, index) => (
-                          <li key={index} className="flex items-start space-x-2 text-sm">
-                            <CheckCircle className="w-4 h-4 text-chart-2 mt-0.5 flex-shrink-0" />
-                            <span>{rec}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {analysisResult.shouldConsultDoctor && (
-                      <Card className="border-chart-3 bg-chart-3/10">
-                        <CardContent className="p-4">
-                          <div className="flex items-center space-x-2">
-                            <AlertTriangle className="w-5 h-5 text-chart-3" />
-                            <span className="font-semibold text-sm">Medical Consultation Recommended</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Based on the analysis, we recommend consulting with a dermatologist for professional evaluation.
-                          </p>
-                        </CardContent>
-                      </Card>
-                    )}
                   </CardContent>
                 </Card>
 
-                <div className="flex space-x-3">
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Button 
                     variant="outline" 
-                    onClick={() => {
-                      setUploadedFile(null);
-                      setAnalysisResult(null);
-                    }}
-                    className="flex-1"
-                    data-testid="button-new-analysis"
+                    onClick={handleStartNewAnalysis}
+                    className="flex-1 group hover:scale-105 transition-all duration-200"
+                    data-testid="button-start-new-analysis"
                   >
-                    New Analysis
+                    <RefreshCw className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
+                    Start New Analysis
                   </Button>
                   <Button 
                     onClick={() => console.log('Save result')}
-                    className="flex-1"
+                    className="flex-1 group hover:scale-105 transition-all duration-200"
                     data-testid="button-save-result"
                   >
+                    <CheckCircle className="w-4 h-4 mr-2" />
                     Save Result
                   </Button>
                 </div>
