@@ -4,6 +4,9 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
+  // Use relative base so the app can be served under a subpath (GitHub Pages)
+  // This works for Render/Node hosting as well
+  base: "./",
   plugins: [
     react(),
     runtimeErrorOverlay(),
