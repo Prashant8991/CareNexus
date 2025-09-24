@@ -36,7 +36,7 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
   const [currentResult, setCurrentResult] = useState<LiveAnalysisResult | null>(null);
   const [analysisHistory, setAnalysisHistory] = useState<LiveAnalysisResult[]>([]);
   const [isAutoAnalyzing, setIsAutoAnalyzing] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user'); // Default to front camera
+  // Always use front camera only
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Start camera stream
@@ -47,7 +47,7 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
         video: {
           width: { ideal: 640 },
           height: { ideal: 480 },
-          facingMode: facingMode // Use selected camera mode
+          facingMode: 'user' // Always use front camera
         }
       });
       
@@ -98,39 +98,6 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
     }
   };
 
-  // Toggle camera (front/back)
-  const toggleCamera = async () => {
-    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
-    setFacingMode(newFacingMode);
-    
-    if (isStreaming) {
-      // Stop current stream
-      stopCamera();
-      // Start new stream with updated facing mode
-      setTimeout(async () => {
-        try {
-          const mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              width: { ideal: 640 },
-              height: { ideal: 480 },
-              facingMode: newFacingMode
-            }
-          });
-          
-          if (videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
-            videoRef.current.play();
-          }
-          
-          setStream(mediaStream);
-          setIsStreaming(true);
-        } catch (err: any) {
-          setError('Failed to switch camera. Please try again.');
-          console.error('Camera switch error:', err);
-        }
-      }, 100);
-    }
-  };
 
   // Capture frame from video and analyze
   const captureAndAnalyze = useCallback(async () => {
@@ -237,12 +204,11 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Video Stream */}
-          <div className="relative bg-muted rounded-lg overflow-hidden" style={{ aspectRatio: '16/9', minHeight: '300px' }}>
+          <div className="relative bg-gray-900 rounded-lg overflow-hidden" style={{ aspectRatio: '16/9', minHeight: '300px', backgroundColor: '#000' }}>
             {isStreaming ? (
               <>
                 <video
                   ref={videoRef}
-                  className="w-full h-full object-cover bg-black"
                   autoPlay
                   muted
                   playsInline
@@ -250,10 +216,14 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
                   width="640"
                   height="480"
                   style={{ 
-                    display: 'block',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
                     width: '100%',
                     height: '100%',
-                    objectFit: 'cover'
+                    objectFit: 'cover',
+                    backgroundColor: 'transparent',
+                    zIndex: 1
                   }}
                   data-testid="video-camera-feed"
                 />
@@ -313,15 +283,6 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
                 >
                   <CameraOff className="w-4 h-4 mr-2" />
                   Stop Camera
-                </Button>
-                <Button 
-                  onClick={toggleCamera}
-                  variant="outline"
-                  className="flex-1 min-w-0"
-                  data-testid="button-toggle-camera"
-                >
-                  <FlipHorizontal className="w-4 h-4 mr-2" />
-                  {facingMode === 'user' ? 'Switch to Back' : 'Switch to Front'}
                 </Button>
                 <Button 
                   onClick={captureAndAnalyze}
