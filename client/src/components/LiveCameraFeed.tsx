@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   Camera, 
   CameraOff,
@@ -27,6 +28,7 @@ interface LiveCameraFeedProps {
 }
 
 export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
+  const { t } = useLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -43,37 +45,76 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
   const startCamera = async () => {
     try {
       setError(null);
+      
+      // Check if camera is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera not supported by this browser');
+      }
+      
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: 'user' // Always use front camera
-        }
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+          facingMode: 'user', // Always use front camera
+          aspectRatio: 16/9
+        },
+        audio: false
       });
       
       if (videoRef.current) {
         console.log('Setting MediaStream to video element. Stream active:', mediaStream.active);
         console.log('Stream tracks:', mediaStream.getTracks().map(t => t.kind + ':' + t.readyState));
         
+        // Reset any previous error states
         videoRef.current.srcObject = mediaStream;
-        // Add event listeners to debug video loading
-        videoRef.current.onloadedmetadata = () => {
-          console.log('Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
+        
+        // Add comprehensive event listeners
+        const video = videoRef.current;
+        video.onloadedmetadata = () => {
+          console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
+          // Try to play once metadata is loaded
+          video.play().catch(err => console.error('Auto-play failed:', err));
         };
-        videoRef.current.oncanplay = () => {
+        
+        video.oncanplay = () => {
           console.log('Video can start playing');
+          setIsStreaming(true);
         };
-        videoRef.current.onerror = (e) => {
+        
+        video.onerror = (e) => {
           console.error('Video element error:', e);
+          setError('Video display error occurred');
         };
-        videoRef.current.onloadstart = () => {
+        
+        video.onloadstart = () => {
           console.log('Video load started');
         };
         
-        // Ensure the video plays
-        videoRef.current.play().catch(err => {
-          console.error('Video play failed:', err);
-        });
+        video.onplay = () => {
+          console.log('Video started playing');
+        };
+        
+        video.onabort = () => {
+          console.log('Video loading aborted');
+        };
+        
+        // Ensure the video plays (with user interaction handling)
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('Video playing successfully');
+            })
+            .catch(err => {
+              if (err.name !== 'AbortError') {
+                console.error('Video play failed:', err);
+                // For browsers that require user interaction, we'll let them click the analyze button
+                if (err.name === 'NotAllowedError') {
+                  console.log('User interaction required for video playback');
+                }
+              }
+            });
+        }
       }
       
       setStream(mediaStream);
@@ -196,10 +237,10 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Video className="w-5 h-5 text-primary" />
-            <span>Live Skin Analysis</span>
+            <span>{t('camera.title')}</span>
           </CardTitle>
           <CardDescription>
-            Real-time skin condition detection using your camera
+            {t('camera.subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -253,8 +294,8 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
                 <Camera className="w-16 h-16 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Camera Not Active</h3>
-                <p className="text-sm text-center">Click "Start Camera" to begin live analysis</p>
+                <h3 className="text-lg font-semibold mb-2">{t('camera.notActive')}</h3>
+                <p className="text-sm text-center">{t('camera.clickToStart')}</p>
               </div>
             )}
           </div>
@@ -271,7 +312,7 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
                 data-testid="button-start-camera"
               >
                 <Camera className="w-4 h-4 mr-2" />
-                Start Camera
+                {t('camera.startCamera')}
               </Button>
             ) : (
               <>
@@ -282,7 +323,7 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
                   data-testid="button-stop-camera"
                 >
                   <CameraOff className="w-4 h-4 mr-2" />
-                  Stop Camera
+                  {t('camera.stopCamera')}
                 </Button>
                 <Button 
                   onClick={captureAndAnalyze}
@@ -291,7 +332,7 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
                   data-testid="button-analyze-frame"
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Analyze Now
+                  {t('camera.analyzeNow')}
                 </Button>
                 <Button 
                   onClick={toggleAutoAnalysis}
@@ -302,12 +343,12 @@ export function LiveCameraFeed({ className = '' }: LiveCameraFeedProps) {
                   {isAutoAnalyzing ? (
                     <>
                       <Pause className="w-4 h-4 mr-2" />
-                      Stop Auto
+                      {t('camera.stopAuto')}
                     </>
                   ) : (
                     <>
                       <Play className="w-4 h-4 mr-2" />
-                      Auto Analysis
+                      {t('camera.autoAnalysis')}
                     </>
                   )}
                 </Button>

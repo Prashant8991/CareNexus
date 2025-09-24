@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { useTheme } from './ThemeProvider';
+import { LanguageSwitcher } from './LanguageSwitcher';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   Home, 
   Camera, 
@@ -15,19 +17,22 @@ import {
   Moon
 } from 'lucide-react';
 
-const navItems = [
-  { path: '/', label: 'Home', icon: Home },
-  { path: '/skin-check', label: 'Skin Check', icon: Camera },
-  { path: '/first-aid', label: 'First Aid', icon: Heart },
-  { path: '/hospitals', label: 'Hospitals', icon: MapPin },
-  { path: '/sos', label: 'SOS', icon: AlertTriangle },
-  { path: '/dashboard', label: 'Dashboard', icon: BarChart3 },
+const getNavItems = (t: (key: string) => string) => [
+  { path: '/', label: t('nav.home'), icon: Home },
+  { path: '/skin-check', label: t('nav.skinCheck'), icon: Camera },
+  { path: '/first-aid', label: t('nav.firstAid'), icon: Heart },
+  { path: '/hospitals', label: t('nav.hospitals'), icon: MapPin },
+  { path: '/sos', label: t('nav.sos'), icon: AlertTriangle },
+  { path: '/dashboard', label: t('nav.dashboard'), icon: BarChart3 },
 ];
 
 export function Navigation() {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { t } = useLanguage();
+  
+  const navItems = getNavItems(t);
 
   return (
     <nav className="sticky top-0 z-50">
@@ -65,6 +70,9 @@ export function Navigation() {
               );
             })}
             
+            {/* Language Switcher */}
+            <LanguageSwitcher variant="compact" className="ml-2" />
+            
             {/* Theme Toggle */}
             <Button
               variant="ghost"
@@ -79,6 +87,7 @@ export function Navigation() {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center space-x-2">
+            <LanguageSwitcher variant="compact" />
             <Button
               variant="ghost"
               size="icon"
