@@ -34,7 +34,13 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ThemeProvider>
-          <div className="min-h-screen bg-background text-foreground">
+          <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
+            {/* Global decorative background accents */}
+            <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+              <div className="absolute -top-24 -left-24 w-[36rem] h-[36rem] rounded-full bg-primary/15 blur-3xl" />
+              <div className="absolute -bottom-32 -right-24 w-[28rem] h-[28rem] rounded-full bg-chart-2/20 blur-3xl" />
+              <div className="absolute top-1/3 right-1/3 w-72 h-72 rounded-full bg-chart-3/10 blur-2xl" />
+            </div>
             <Navigation />
             <Router />
           </div>

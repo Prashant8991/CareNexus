@@ -30,15 +30,17 @@ export function Navigation() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <nav className="bg-card border-b border-card-border sticky top-0 z-50">
+    <nav className="sticky top-0 z-50">
+      {/* Gradient header background */}
+      <div className="absolute inset-0 h-16 bg-gradient-to-r from-primary/15 via-chart-2/15 to-primary/10 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md"></div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="relative flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
+          <Link href="/" className="group flex items-center space-x-2">
+            <div className="w-9 h-9 bg-primary rounded-md flex items-center justify-center shadow hover:shadow-md transition-all group-hover:scale-105">
               <Heart className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-display font-semibold text-lg text-foreground">
+            <span className="font-display font-semibold text-lg text-foreground tracking-tight">
               AI Health Companion
             </span>
           </Link>
@@ -53,7 +55,7 @@ export function Navigation() {
                   <Button
                     variant={isActive ? "secondary" : "ghost"}
                     size="sm"
-                    className="flex items-center space-x-2"
+                    className={`flex items-center space-x-2 transition-transform hover:scale-[1.02] ${isActive ? 'shadow-sm' : ''}`}
                     data-testid={`nav-${item.label.toLowerCase().replace(' ', '-')}`}
                   >
                     <Icon className="w-4 h-4" />
@@ -69,7 +71,7 @@ export function Navigation() {
               size="icon"
               onClick={toggleTheme}
               data-testid="button-theme-toggle"
-              className="ml-2"
+              className="ml-2 hover:rotate-12 transition-transform"
             >
               {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
             </Button>
@@ -108,7 +110,7 @@ export function Navigation() {
                     <Button
                       variant={isActive ? "secondary" : "ghost"}
                       size="sm"
-                      className="w-full justify-start space-x-2"
+                      className="w-full justify-start space-x-2 hover:translate-x-1 transition-transform"
                       onClick={() => setIsMobileMenuOpen(false)}
                       data-testid={`nav-mobile-${item.label.toLowerCase().replace(' ', '-')}`}
                     >

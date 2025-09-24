@@ -1,9 +1,28 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'wouter';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { HealthCard } from '@/components/HealthCard';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   BarChart3, 
   TrendingUp,
@@ -36,6 +55,8 @@ interface HealthRecord {
 }
 
 export default function Dashboard() {
+  const [locationStr, navigate] = useLocation();
+  const { toast } = useToast();
   // TODO: Replace with real health data from backend
   const [healthMetrics] = useState<HealthMetric[]>([
     { label: 'Blood Pressure', value: '120/80', trend: 'stable', status: 'normal' },
@@ -44,7 +65,7 @@ export default function Dashboard() {
     { label: 'Sleep', value: '7.5 hrs', trend: 'up', status: 'good' }
   ]);
 
-  const [healthRecords] = useState<HealthRecord[]>([
+  const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([
     {
       id: '1',
       type: 'skin-check',
@@ -115,6 +136,88 @@ export default function Dashboard() {
     }
   };
 
+  const handleExport = () => {
+    try {
+      const payload = { metrics: healthMetrics, records: healthRecords, exportedAt: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'health-data.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: 'Exported', description: 'Your health data has been exported as JSON.' });
+    } catch (_e) {
+      toast({ title: 'Export failed', description: 'Please try again.', });
+    }
+  };
+
+  const handleViewRecord = (recordId: string) => {
+    navigate(`/dashboard?record=${encodeURIComponent(recordId)}`);
+    toast({ title: 'Opening record', description: `Record #${recordId}` });
+  };
+
+  const [isAllRecordsOpen, setIsAllRecordsOpen] = useState(false);
+  const handleViewAllRecords = () => {
+    setIsAllRecordsOpen(true);
+  };
+
+  const handleAddGoal = () => {
+    toast({ title: 'Coming soon', description: 'Goal creation will be available shortly.' });
+  };
+
+  const handleScheduleAppointment = () => {
+    toast({ title: 'Coming soon', description: 'Scheduling integration is not yet enabled.' });
+  };
+
+  // Add New Record dialog state
+  const [isAddRecordOpen, setIsAddRecordOpen] = useState(false);
+  const [newRecordType, setNewRecordType] = useState<HealthRecord['type']>('skin-check');
+  const [newRecordTitle, setNewRecordTitle] = useState('');
+  const [newRecordDate, setNewRecordDate] = useState<string>('');
+  const [newRecordStatus, setNewRecordStatus] = useState<HealthRecord['status']>('normal');
+  const [newRecordSummary, setNewRecordSummary] = useState('');
+
+  const handleOpenAddRecord = () => setIsAddRecordOpen(true);
+  const handleSubmitAddRecord = () => {
+    if (!newRecordTitle || !newRecordDate) {
+      toast({ title: 'Missing fields', description: 'Please add a title and date.' });
+      return;
+    }
+    const newRec: HealthRecord = {
+      id: String(Date.now()),
+      type: newRecordType,
+      title: newRecordTitle,
+      date: newRecordDate,
+      status: newRecordStatus,
+      summary: newRecordSummary || 'No summary provided.',
+    };
+    setHealthRecords(prev => [newRec, ...prev]);
+    setIsAddRecordOpen(false);
+    setNewRecordTitle('');
+    setNewRecordDate('');
+    setNewRecordSummary('');
+    toast({ title: 'Record added', description: 'New health record saved to dashboard.' });
+  };
+
+  // Open dialogs based on query params
+  const query = useMemo(() => {
+    try {
+      const q = new URLSearchParams(locationStr.split('?')[1] || '');
+      return Object.fromEntries(q.entries());
+    } catch {
+      return {} as Record<string, string>;
+    }
+  }, [locationStr]);
+
+  useEffect(() => {
+    if ((query as any).view === 'records') {
+      setIsAllRecordsOpen(true);
+    }
+  }, [query]);
+
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -128,7 +231,7 @@ export default function Dashboard() {
               Monitor your health metrics and track your wellness journey
             </p>
           </div>
-          <Button data-testid="button-export-data">
+          <Button data-testid="button-export-data" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
             Export Data
           </Button>
@@ -184,7 +287,7 @@ export default function Dashboard() {
                           <p className="text-sm text-muted-foreground mb-1">{record.summary}</p>
                           <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                             <span>{new Date(record.date).toLocaleDateString()}</span>
-                            <Button variant="ghost" size="sm" className="h-auto p-0 text-xs">
+                            <Button variant="ghost" size="sm" className="h-auto p-0 text-xs" onClick={() => handleViewRecord(record.id)}>
                               <Eye className="w-3 h-3 mr-1" />
                               View Details
                             </Button>
@@ -196,7 +299,7 @@ export default function Dashboard() {
                 </div>
                 
                 <div className="mt-6 text-center">
-                  <Button variant="outline" data-testid="button-view-all-records">
+          <Button variant="outline" data-testid="button-view-all-records" onClick={handleViewAllRecords}>
                     View All Records
                   </Button>
                 </div>
@@ -237,9 +340,9 @@ export default function Dashboard() {
                   <Progress value={94} className="h-2" />
                 </div>
 
-                <Button variant="outline" size="sm" className="w-full">
+                <Button variant="outline" size="sm" className="w-full" onClick={handleOpenAddRecord}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Add New Goal
+                  Add New Record
                 </Button>
               </CardContent>
             </Card>
@@ -259,7 +362,7 @@ export default function Dashboard() {
                   description="AI-powered analysis"
                   icon={Camera}
                   actionLabel="Start Analysis"
-                  onAction={() => console.log('Navigate to skin check')}
+                  onAction={() => navigate('/skin-check')}
                 />
                 
                 <HealthCard
@@ -267,7 +370,7 @@ export default function Dashboard() {
                   description="Log health metrics"
                   icon={Heart}
                   actionLabel="Add Reading"
-                  onAction={() => console.log('Add vital signs')}
+                  onAction={() => toast({ title: 'Coming soon', description: 'Vitals logging will be available shortly.' })}
                 />
                 
                 <HealthCard
@@ -276,7 +379,7 @@ export default function Dashboard() {
                   icon={AlertTriangle}
                   status="emergency"
                   actionLabel="Emergency SOS"
-                  onAction={() => console.log('Navigate to emergency')}
+                  onAction={() => navigate('/sos')}
                   isEmergency={true}
                 />
               </CardContent>
@@ -333,7 +436,7 @@ export default function Dashboard() {
                     <p className="text-xs text-muted-foreground">2:00 PM</p>
                   </div>
                   
-                  <Button variant="outline" size="sm" className="w-full">
+                  <Button variant="outline" size="sm" className="w-full" onClick={handleScheduleAppointment}>
                     <Plus className="w-4 h-4 mr-2" />
                     Schedule Appointment
                   </Button>
@@ -342,6 +445,91 @@ export default function Dashboard() {
             </Card>
           </div>
         </div>
+
+        {/* View All Records Dialog */}
+        <Dialog open={isAllRecordsOpen} onOpenChange={setIsAllRecordsOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>All Health Records</DialogTitle>
+              <DialogDescription>Your complete recent activity list</DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-1">
+              {healthRecords.map((record) => {
+                const IconComponent = getRecordIcon(record.type);
+                return (
+                  <div key={record.id} className="flex items-start space-x-3 p-3 bg-muted/30 rounded-md">
+                    <div className={`p-2 rounded-full ${record.status === 'emergency' ? 'bg-destructive' : 'bg-primary'}`}>
+                      <IconComponent className={`w-4 h-4 ${record.status === 'emergency' ? 'text-destructive-foreground' : 'text-primary-foreground'}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className="font-semibold text-sm truncate">{record.title}</h4>
+                        <Badge className={getStatusBadgeColor(record.status)}>{record.status}</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mb-1">{record.summary}</p>
+                      <div className="text-[10px] text-muted-foreground">{new Date(record.date).toLocaleDateString()}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add New Record Dialog */}
+        <Dialog open={isAddRecordOpen} onOpenChange={setIsAddRecordOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Record</DialogTitle>
+              <DialogDescription>Save a new health entry to your timeline</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm">Type</label>
+                <Select value={newRecordType} onValueChange={(v) => setNewRecordType(v as HealthRecord['type'])}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select a type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="skin-check">Skin Check</SelectItem>
+                    <SelectItem value="vital-signs">Vital Signs</SelectItem>
+                    <SelectItem value="hospital-visit">Hospital Visit</SelectItem>
+                    <SelectItem value="emergency">Emergency</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm">Title</label>
+                <Input className="mt-1" value={newRecordTitle} onChange={(e) => setNewRecordTitle(e.target.value)} placeholder="e.g. Blood Pressure Reading" />
+              </div>
+              <div>
+                <label className="text-sm">Date</label>
+                <Input className="mt-1" type="date" value={newRecordDate} onChange={(e) => setNewRecordDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm">Status</label>
+                <Select value={newRecordStatus} onValueChange={(v) => setNewRecordStatus(v as HealthRecord['status'])}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="warning">Warning</SelectItem>
+                    <SelectItem value="emergency">Emergency</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm">Summary</label>
+                <Textarea className="mt-1" value={newRecordSummary} onChange={(e) => setNewRecordSummary(e.target.value)} placeholder="Short description" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddRecordOpen(false)}>Cancel</Button>
+              <Button onClick={handleSubmitAddRecord}>Save Record</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

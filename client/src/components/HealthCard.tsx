@@ -31,7 +31,7 @@ export function HealthCard({
   children 
 }: HealthCardProps) {
   return (
-    <Card className={`transition-all duration-200 hover-elevate ${isEmergency ? 'border-destructive' : ''}`}>
+    <Card className={`transition-all duration-200 hover-elevate hover:shadow-lg hover:translate-y-0.5 ${isEmergency ? 'border-destructive' : ''}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <div className="flex items-center space-x-3">
           <div className={`p-2 rounded-md ${isEmergency ? 'bg-destructive' : 'bg-primary'}`}>

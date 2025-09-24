@@ -17,6 +17,13 @@ interface AnalysisResult {
   condition: string;
   confidence: number;
   tips: string[];
+  source?: {
+    provider: string;
+    model: string;
+    url?: string;
+  }
+  isTestModel?: boolean;
+  raw?: Array<{ label: string; score: number }>;
 }
 
 export default function SkinCheck() {
@@ -40,24 +47,21 @@ export default function SkinCheck() {
     setIsAnalyzing(true);
     
     try {
-      // Create FormData to send the image file
       const formData = new FormData();
       formData.append('image', uploadedFile);
-      
-      // Since we can't use apiRequest with FormData directly, we'll use fetch
-      // But for now, we'll simulate the API call with a mock response as requested
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 2500));
-      
-      // Mock API response in the exact format requested
-      const mockResult: AnalysisResult = {
-        condition: "mild acne", 
-        confidence: 0.78,
-        tips: ["gentle cleansing", "see dermatologist if painful"]
-      };
-      
-      setAnalysisResult(mockResult);
+
+      const resp = await fetch('/api/skin/analyze', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error(txt || 'Analysis failed');
+      }
+
+      const result = await resp.json() as AnalysisResult;
+      setAnalysisResult(result);
     } catch (error) {
       console.error('Analysis failed:', error);
       // Set a fallback result in case of error
@@ -229,6 +233,23 @@ export default function SkinCheck() {
                         </ul>
                       </div>
                     </div>
+
+                    {/* Source */}
+                    {analysisResult.source && (
+                      <div className="text-xs text-muted-foreground">
+                        Source: {analysisResult.source.provider} · {analysisResult.source.model}{' '}
+                        {analysisResult.source.url && (
+                          <a className="underline" href={analysisResult.source.url} target="_blank" rel="noreferrer">model card</a>
+                        )}
+                      </div>
+                    )}
+
+                  {/* Diagnostic note if a placeholder model is used */}
+                  {analysisResult.isTestModel && (
+                    <div className="text-xs text-amber-600">
+                      Note: Using a placeholder test model. Configure HF_MODEL_ID to a dermatology model (e.g. HAM10000/ISIC) for meaningful predictions.
+                    </div>
+                  )}
                   </CardContent>
                 </Card>
 
